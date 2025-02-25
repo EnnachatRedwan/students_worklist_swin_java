@@ -1,6 +1,7 @@
-package org.isga.project_jee.dao;
+package dao;
 
-import org.isga.project_jee.model.Student;
+import model.Student;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
