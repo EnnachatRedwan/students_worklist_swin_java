@@ -3,6 +3,7 @@ import model.Student;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -12,10 +13,11 @@ import java.util.List;
 
 public class StudentsWorkList {
     private StudentDao studentDAO;
-    private JTextField firstNameField, lastNameField, addressField, telField;
-    private JButton addButton, deleteButton, updateButton, exportStudentsButton,exportStudentsSerialisedButton;
+    private JTextField firstNameField, lastNameField, addressField, telField, searchField;
+    private JButton addButton, deleteButton, updateButton, exportStudentsButton, exportStudentsSerialisedButton;
     private JTable studentsTable;
     private DefaultTableModel tableModel;
+    private TableRowSorter<DefaultTableModel> sorter;
 
     public StudentsWorkList() {
         studentDAO = new StudentDao();
@@ -26,15 +28,17 @@ public class StudentsWorkList {
         frame.setMinimumSize(new Dimension(1300, 500));
         frame.setLayout(new BorderLayout());
 
-        // Define table columns
         String[] columns = {"ID", "First Name", "Last Name", "Address", "Tel"};
         tableModel = new DefaultTableModel(columns, 0);
         studentsTable = new JTable(tableModel);
+
+        sorter = new TableRowSorter<>(tableModel);
+        studentsTable.setRowSorter(sorter);
+
         updateStudentTable();
 
         JScrollPane scrollPane = new JScrollPane(studentsTable);
 
-        // Input fields and buttons
         firstNameField = new JTextField(10);
         lastNameField = new JTextField(10);
         addressField = new JTextField(10);
@@ -44,6 +48,38 @@ public class StudentsWorkList {
         updateButton = new JButton("Update");
         exportStudentsButton = new JButton("Export Students");
         exportStudentsSerialisedButton = new JButton("Export Students Serialised");
+
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        searchField = new JTextField(20);
+        JLabel searchLabel = new JLabel("Search:");
+        searchPanel.add(searchLabel);
+        searchPanel.add(searchField);
+
+        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                search();
+            }
+
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                search();
+            }
+
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                search();
+            }
+
+            private void search() {
+                String text = searchField.getText();
+                if (text.trim().length() == 0) {
+                    sorter.setRowFilter(null);
+                } else {
+                    sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
+                }
+            }
+        });
 
         JPanel inputPanel = new JPanel();
         inputPanel.add(new JLabel("First Name:"));
@@ -60,6 +96,10 @@ public class StudentsWorkList {
         inputPanel.add(exportStudentsButton);
         inputPanel.add(exportStudentsSerialisedButton);
 
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(searchPanel, BorderLayout.NORTH);
+        topPanel.add(inputPanel, BorderLayout.CENTER);
+
         addButton.addActionListener(e -> addStudent());
         deleteButton.addActionListener(e -> deleteStudent());
         updateButton.addActionListener(e -> updateStudent());
@@ -67,8 +107,7 @@ public class StudentsWorkList {
         exportStudentsSerialisedButton.addActionListener(e -> exportStudentsSerialised());
         studentsTable.getSelectionModel().addListSelectionListener(e -> populateFields());
 
-        // **Set inputs and buttons at the top**
-        frame.add(inputPanel, BorderLayout.NORTH);
+        frame.add(topPanel, BorderLayout.NORTH);
         frame.add(scrollPane, BorderLayout.CENTER);
         frame.setVisible(true);
     }
@@ -105,7 +144,8 @@ public class StudentsWorkList {
     private void deleteStudent() {
         int selectedRow = studentsTable.getSelectedRow();
         if (selectedRow != -1) {
-            int id = (int) tableModel.getValueAt(selectedRow, 0);
+            int modelRow = studentsTable.convertRowIndexToModel(selectedRow);
+            int id = (int) tableModel.getValueAt(modelRow, 0);
             studentDAO.deleteStudent(id);
             updateStudentTable();
             clearFields();
@@ -117,7 +157,8 @@ public class StudentsWorkList {
     private void updateStudent() {
         int selectedRow = studentsTable.getSelectedRow();
         if (selectedRow != -1) {
-            int id = (int) tableModel.getValueAt(selectedRow, 0);
+            int modelRow = studentsTable.convertRowIndexToModel(selectedRow);
+            int id = (int) tableModel.getValueAt(modelRow, 0);
             studentDAO.updateStudent(
                     id,
                     firstNameField.getText(),
@@ -163,10 +204,11 @@ public class StudentsWorkList {
     private void populateFields() {
         int selectedRow = studentsTable.getSelectedRow();
         if (selectedRow != -1) {
-            firstNameField.setText((String) tableModel.getValueAt(selectedRow, 1));
-            lastNameField.setText((String) tableModel.getValueAt(selectedRow, 2));
-            addressField.setText((String) tableModel.getValueAt(selectedRow, 3));
-            telField.setText((String) tableModel.getValueAt(selectedRow, 4));
+            int modelRow = studentsTable.convertRowIndexToModel(selectedRow);
+            firstNameField.setText((String) tableModel.getValueAt(modelRow, 1));
+            lastNameField.setText((String) tableModel.getValueAt(modelRow, 2));
+            addressField.setText((String) tableModel.getValueAt(modelRow, 3));
+            telField.setText((String) tableModel.getValueAt(modelRow, 4));
         }
     }
 
