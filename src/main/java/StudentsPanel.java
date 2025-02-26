@@ -2,8 +2,11 @@ import dao.StudentDao;
 import model.Student;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
+import javax.swing.RowFilter;
 import java.awt.*;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -11,7 +14,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.List;
 
-public class StudentsWorkList {
+public class StudentsPanel extends JPanel {
     private StudentDao studentDAO;
     private JTextField firstNameField, lastNameField, addressField, telField, searchField;
     private JButton addButton, deleteButton, updateButton, exportStudentsButton, exportStudentsSerialisedButton;
@@ -19,22 +22,15 @@ public class StudentsWorkList {
     private DefaultTableModel tableModel;
     private TableRowSorter<DefaultTableModel> sorter;
 
-    public StudentsWorkList() {
+    public StudentsPanel() {
         studentDAO = new StudentDao();
-
-        JFrame frame = new JFrame("Student Worklist");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(1300, 500);
-        frame.setMinimumSize(new Dimension(1300, 500));
-        frame.setLayout(new BorderLayout());
+        setLayout(new BorderLayout());
 
         String[] columns = {"ID", "First Name", "Last Name", "Address", "Tel"};
         tableModel = new DefaultTableModel(columns, 0);
         studentsTable = new JTable(tableModel);
-
         sorter = new TableRowSorter<>(tableModel);
         studentsTable.setRowSorter(sorter);
-
         updateStudentTable();
 
         JScrollPane scrollPane = new JScrollPane(studentsTable);
@@ -51,29 +47,20 @@ public class StudentsWorkList {
 
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         searchField = new JTextField(20);
-        JLabel searchLabel = new JLabel("Search:");
-        searchPanel.add(searchLabel);
+        searchPanel.add(new JLabel("Search:"));
         searchPanel.add(searchField);
 
-        searchField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
             @Override
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                search();
-            }
-
+            public void insertUpdate(DocumentEvent e) { search(); }
             @Override
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                search();
-            }
-
+            public void removeUpdate(DocumentEvent e) { search(); }
             @Override
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                search();
-            }
+            public void changedUpdate(DocumentEvent e) { search(); }
 
             private void search() {
-                String text = searchField.getText();
-                if (text.trim().length() == 0) {
+                String text = searchField.getText().trim();
+                if (text.isEmpty()) {
                     sorter.setRowFilter(null);
                 } else {
                     sorter.setRowFilter(RowFilter.regexFilter("(?i)" + text));
@@ -100,16 +87,15 @@ public class StudentsWorkList {
         topPanel.add(searchPanel, BorderLayout.NORTH);
         topPanel.add(inputPanel, BorderLayout.CENTER);
 
+        add(topPanel, BorderLayout.NORTH);
+        add(scrollPane, BorderLayout.CENTER);
+
         addButton.addActionListener(e -> addStudent());
         deleteButton.addActionListener(e -> deleteStudent());
         updateButton.addActionListener(e -> updateStudent());
         exportStudentsButton.addActionListener(e -> exportStudents());
         exportStudentsSerialisedButton.addActionListener(e -> exportStudentsSerialised());
         studentsTable.getSelectionModel().addListSelectionListener(e -> populateFields());
-
-        frame.add(topPanel, BorderLayout.NORTH);
-        frame.add(scrollPane, BorderLayout.CENTER);
-        frame.setVisible(true);
     }
 
     private void updateStudentTable() {
@@ -126,6 +112,10 @@ public class StudentsWorkList {
         }
     }
 
+    public void refreshData() {
+        updateStudentTable();
+    }
+
     private void addStudent() {
         String firstName = firstNameField.getText();
         String lastName = lastNameField.getText();
@@ -134,10 +124,10 @@ public class StudentsWorkList {
 
         if (!firstName.isEmpty() && !lastName.isEmpty() && !address.isEmpty() && !tel.isEmpty()) {
             studentDAO.addStudent(firstName, lastName, address, tel);
-            updateStudentTable();
+            refreshData();
             clearFields();
         } else {
-            JOptionPane.showMessageDialog(null, "All fields are required!", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "All fields are required!", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -147,10 +137,10 @@ public class StudentsWorkList {
             int modelRow = studentsTable.convertRowIndexToModel(selectedRow);
             int id = (int) tableModel.getValueAt(modelRow, 0);
             studentDAO.deleteStudent(id);
-            updateStudentTable();
+            refreshData();
             clearFields();
         } else {
-            JOptionPane.showMessageDialog(null, "Select a student to delete!", "Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Select a student to delete!", "Error", JOptionPane.WARNING_MESSAGE);
         }
     }
 
@@ -159,45 +149,41 @@ public class StudentsWorkList {
         if (selectedRow != -1) {
             int modelRow = studentsTable.convertRowIndexToModel(selectedRow);
             int id = (int) tableModel.getValueAt(modelRow, 0);
-            studentDAO.updateStudent(
-                    id,
-                    firstNameField.getText(),
-                    lastNameField.getText(),
-                    addressField.getText(),
-                    telField.getText()
-            );
-            updateStudentTable();
+            studentDAO.updateStudent(id, firstNameField.getText(), lastNameField.getText(),
+                    addressField.getText(), telField.getText());
+            refreshData();
             clearFields();
         } else {
-            JOptionPane.showMessageDialog(null, "Select a student to update!", "Error", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Select a student to update!", "Error", JOptionPane.WARNING_MESSAGE);
         }
     }
 
     private void exportStudents() {
         List<Student> students = studentDAO.getStudents();
-        try (FileWriter fileWriter = new FileWriter("students.txt")) {
+        try (FileWriter writer = new FileWriter("students.txt")) {
             for (Student s : students) {
-                String line = s.getId() + ";" + s.getFirstName() + ";" + s.getLastName() + ";" + s.getAddress() + ";" + s.getTel() + "\n";
-                fileWriter.append(line);
+                writer.write(String.format("%d;%s;%s;%s;%s%n",
+                        s.getId(), s.getFirstName(), s.getLastName(), s.getAddress(), s.getTel()));
             }
-            fileWriter.flush();
-            JOptionPane.showMessageDialog(null, "Students were exported successfully", "Student exported", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Exported successfully to students.txt",
+                    "Export Complete", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(null, "Error occurred while exporting students", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Export failed: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     private void exportStudentsSerialised() {
         List<Student> students = studentDAO.getStudents();
-        try (FileOutputStream fileOutputStream = new FileOutputStream("students.ser")){
-            ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream("students.ser"))) {
             for (Student s : students) {
-                objectOutputStream.writeObject(s);
+                oos.writeObject(s);
             }
-            objectOutputStream.flush();
-            JOptionPane.showMessageDialog(null, "Students were exported successfully", "Student exported", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Exported successfully to students.ser",
+                    "Export Complete", JOptionPane.INFORMATION_MESSAGE);
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(null, "Error occurred while exporting students", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Export failed: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -217,9 +203,5 @@ public class StudentsWorkList {
         lastNameField.setText("");
         addressField.setText("");
         telField.setText("");
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(StudentsWorkList::new);
     }
 }
