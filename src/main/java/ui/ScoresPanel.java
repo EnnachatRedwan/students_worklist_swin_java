@@ -12,6 +12,8 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.List;
 
 public class ScoresPanel extends JPanel {
@@ -22,7 +24,8 @@ public class ScoresPanel extends JPanel {
     private JComboBox<StudentItem> studentComboBox;
     private JComboBox<SubjectItem> subjectComboBox;
     private JTextField scoreField;
-    private JButton addButton, deleteButton, updateButton, meanScoreButton;
+    private JButton addButton, deleteButton, updateButton, meanScoreButton, exportButton;
+    ;
     private JTable scoresTable;
     private DefaultTableModel tableModel;
 
@@ -56,6 +59,7 @@ public class ScoresPanel extends JPanel {
         updateButton = new JButton("Update Score");
         deleteButton = new JButton("Delete Score");
         meanScoreButton = new JButton("Show Mean Score");
+        exportButton = new JButton("Export Scores");
 
         loadStudentsComboBox();
         loadSubjectsComboBox();
@@ -71,11 +75,13 @@ public class ScoresPanel extends JPanel {
         inputPanel.add(updateButton);
         inputPanel.add(deleteButton);
         inputPanel.add(meanScoreButton);
+        inputPanel.add(exportButton);
 
         addButton.addActionListener(e -> addScore());
         updateButton.addActionListener(e -> updateScore());
         deleteButton.addActionListener(e -> deleteScore());
         meanScoreButton.addActionListener(e -> showMeanScore());
+        exportButton.addActionListener(e -> exportScores());
 
         studentComboBox.addActionListener(e -> {
             if (studentComboBox.getSelectedItem() != null) {
@@ -89,6 +95,56 @@ public class ScoresPanel extends JPanel {
 
         if (studentComboBox.getItemCount() > 0) {
             updateScoresTableForStudent();
+        }
+    }
+
+    private void exportScores() {
+        if (studentComboBox.getSelectedItem() == null) {
+            JOptionPane.showMessageDialog(this, "Select a student first!", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        StudentItem studentItem = (StudentItem) studentComboBox.getSelectedItem();
+        Student student = studentItem.getStudent();
+        List<Score> scores = scoreDao.getScoresByStudentId(student.getId());
+
+        try (FileWriter writer = new FileWriter("scores_" + student.getId() + "_" + student.getLastName() + ".txt")) {
+            writer.write("Student: " + student.getFirstName() + " " + student.getLastName() + "\n");
+            writer.write("--------------------------------\n");
+
+            double total = 0;
+            int validScores = 0;
+
+            for (Score score : scores) {
+                Subject subject = subjectDao.getSubjectById(score.getSubjectId());
+
+                if (subject != null) {
+                    writer.write(String.format("%-15s: %6.2f\n",
+                            subject.getName(),
+                            score.getScore()));
+                    total += score.getScore();
+                    validScores++;
+                }
+            }
+
+            if (validScores > 0) {
+                double mean = total / validScores;
+                writer.write("--------------------------------\n");
+                writer.write(String.format("Mean Score: %6.2f", mean));
+            } else {
+                writer.write("No valid scores available");
+            }
+
+            JOptionPane.showMessageDialog(this,
+                    "Exported to: scores_" + student.getId() + ".txt",
+                    "Export Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+
+        } catch (IOException ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Export failed: " + ex.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -122,6 +178,11 @@ public class ScoresPanel extends JPanel {
         List<Score> scores = scoreDao.getScoresByStudentId(studentId);
         for (Score score : scores) {
             Subject subject = subjectDao.getSubjectById(score.getSubjectId());
+
+            if (subject == null) {
+                continue;
+            }
+
             tableModel.addRow(new Object[]{
                     score.getId(),
                     selectedStudent.toString(),
