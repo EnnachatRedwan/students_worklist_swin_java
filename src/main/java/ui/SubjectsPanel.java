@@ -1,3 +1,5 @@
+package ui;
+
 import dao.SubjectDao;
 import model.Subject;
 

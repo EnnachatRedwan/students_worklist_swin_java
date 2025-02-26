@@ -1,3 +1,5 @@
+package ui;
+
 import dao.ScoreDao;
 import dao.StudentDao;
 import dao.SubjectDao;

@@ -1,3 +1,7 @@
+import ui.ScoresPanel;
+import ui.StudentsPanel;
+import ui.SubjectsPanel;
+
 import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;

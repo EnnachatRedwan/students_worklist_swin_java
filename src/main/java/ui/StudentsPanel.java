@@ -1,3 +1,5 @@
+package ui;
+
 import dao.StudentDao;
 import model.Student;
 
